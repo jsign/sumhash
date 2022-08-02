@@ -37,7 +37,6 @@ pub fn random_matrix<T: ReadBytesExt>(rand: &mut T, n: usize, m: usize) -> Matri
 
 // RandomMatrixFromSeed creates a random-looking matrix to be used for the sumhash function using the seed bytes.
 // n and m are the rows  and columns of the matrix respectively
-#[cfg(test)]
 pub fn random_matrix_from_seed(seed: &[u8], n: usize, m: usize) -> Matrix {
     let mut xof = Shake256::default();
     xof.write_all(&64u16.to_le_bytes()).unwrap();
