@@ -1,3 +1,3 @@
 mod compress;
-pub mod sumhash;
+mod sumhash;
 pub mod sumhash512;
