@@ -28,7 +28,7 @@ impl<C: compress::Compressor> Digest<C> {
         let input_len = c.input_len();
 
         let mut d = Digest {
-            c: c,
+            c,
             size: output_len,
             block_size: input_len - output_len,
 
@@ -37,7 +37,7 @@ impl<C: compress::Compressor> Digest<C> {
             nx: 0,
             len: 0,
 
-            salt: salt,
+            salt,
         };
 
         if let Some(ref salt) = d.salt {
@@ -55,7 +55,7 @@ impl<C: compress::Compressor> Digest<C> {
         self.h.iter_mut().for_each(|a| *a = 0);
         self.nx = 0;
         self.len = 0;
-        if let Some(_) = self.salt {
+        if self.salt.is_some() {
             // Write an initial block of zeros, effectively
             // prepending the salt to the input.
             let zeros = vec![0u8; self.block_size];
@@ -85,7 +85,7 @@ impl<C: compress::Compressor> Digest<C> {
         self.len += nn as u64;
         if self.nx > 0 {
             // continue with existing buffer, if nonempty
-            let n = self.x[self.nx..].as_mut().write(&p)?;
+            let n = self.x[self.nx..].as_mut().write(p)?;
 
             self.nx += n;
             if self.nx == self.block_size {
@@ -101,7 +101,7 @@ impl<C: compress::Compressor> Digest<C> {
             blocks(self, &p[..n]);
             p = &p[n..];
         }
-        if p.len() > 0 {
+        if !p.is_empty() {
             // handle any remaining input
             match self.x.as_mut_slice().write(p) {
                 Ok(s) => self.nx = s,
@@ -112,8 +112,9 @@ impl<C: compress::Compressor> Digest<C> {
         Ok(nn)
     }
 
+    // TODO(jsign): impl copy.
     fn copy(&self) -> Self {
-        let dd = Digest {
+        Digest {
             c: self.c.clone(),
             size: self.size,
             block_size: self.block_size,
@@ -122,10 +123,10 @@ impl<C: compress::Compressor> Digest<C> {
             nx: self.nx,
             len: self.len,
             salt: self.salt.clone(),
-        };
-        dd
+        }
     }
 
+    // TODO(jsign): receiving Vec<u8> isn't useful.
     pub fn sum(&self, mut iin: Vec<u8>) -> Result<Vec<u8>> {
         // Make a copy of d so that caller can keep writing and summing.
         let mut d0 = self.copy();
@@ -171,15 +172,15 @@ fn blocks<C: compress::Compressor>(d: &mut Digest<C>, data: &[u8]) {
     (0..data.len() - d.block_size + 1)
         .step_by(d.block_size)
         .for_each(|i| {
-            cin[0..d.size].as_mut().write(&d.h).unwrap();
+            cin[0..d.size].as_mut().write_all(&d.h).unwrap();
 
             let input = &data[i..i + d.block_size];
             if let Some(ref salt) = d.salt {
-                xor_bytes(cin[d.size..d.size + d.block_size].as_mut(), input, &salt);
+                xor_bytes(cin[d.size..d.size + d.block_size].as_mut(), input, salt);
             } else {
                 cin[d.size..d.size + d.block_size]
                     .as_mut()
-                    .write(input)
+                    .write_all(input)
                     .unwrap();
             }
 
@@ -206,8 +207,8 @@ pub mod test {
 
     #[test]
     fn test_hash() {
-        test_hash_params(14, 14 * 64 * 4);
-        test_hash_params(10, 10 * 64 * 2);
+        test_hash_params(14, 14 * 64 * 4).unwrap();
+        test_hash_params(10, 10 * 64 * 2).unwrap();
     }
 
     #[test]
@@ -266,11 +267,11 @@ pub mod test {
 
     fn test_hash_params(n: usize, m: usize) -> Result<()> {
         let mut rand = Shake256::default().finalize_xof();
-        let A = compress::random_matrix(&mut rand, n, m);
-        let At = A.lookup_table();
+        let a = compress::random_matrix(&mut rand, n, m);
+        let a_t = a.lookup_table();
 
-        let input_len = A.input_len();
-        let mut h1 = Digest::new(A, None)?;
+        let input_len = a.input_len();
+        let mut h1 = Digest::new(a, None)?;
         assert_eq!(h1.size(), n * 8, "h1 has unexpected size");
         assert_eq!(
             h1.block_size(),
@@ -278,7 +279,7 @@ pub mod test {
             "h1 has unexpected block size"
         );
 
-        let mut h2 = Digest::new(At, None)?;
+        let mut h2 = Digest::new(a_t, None)?;
         assert_eq!(h2.size(), n * 8, "h2 has unexpected size");
         assert_eq!(
             h2.block_size(),
@@ -288,7 +289,7 @@ pub mod test {
 
         for l in [1, 64, 100, 128, input_len, 6000, 6007] {
             let mut msg = vec![0; l];
-            rand.read(&mut msg)?;
+            rand.read_exact(&mut msg)?;
 
             h1.write(&msg)?;
             h2.write(&msg)?;
