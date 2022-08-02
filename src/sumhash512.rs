@@ -3,10 +3,10 @@ use crate::sumhash::Digest;
 use anyhow::Result;
 
 // DigestSize  The size in bytes of the sumhash checksum.
-const DigestSize: usize = 64;
+pub const DIGEST_SIZE: usize = 64;
 
 // DigestBlockSize  is the block size, in bytes, of the sumhash hash function.
-const DigestBlockSize: usize = 64;
+pub const DIGEST_BLOCK_SIZE: usize = 64;
 
 // New512 creates a new sumhash512 context that computes a sumhash checksum.
 // The output of the hash function is 64 bytes (512 bits).
@@ -14,7 +14,7 @@ const DigestBlockSize: usize = 64;
 // Otherwise, salt should be 64 bytes, and the hash is computed in salted mode.
 // the context returned by this function reference the salt argument. any changes
 // might affect the hash calculation
-fn new(salt: Option<Vec<u8>>) -> Result<Digest<LookupTable>> {
+pub fn new(salt: Option<Vec<u8>>) -> Result<Digest<LookupTable>> {
     let matrix = compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024);
 
     // SumhashCompressor is a matrix derived from a seed which is used by the
