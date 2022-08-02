@@ -27,7 +27,13 @@ pub fn new(salt: Option<Vec<u8>>) -> Result<Digest<LookupTable>> {
 
 #[cfg(test)]
 pub mod test {
+    use std::io::Write;
+
     use super::*;
+    use sha3::{
+        digest::{ExtendableOutput, XofReader},
+        Shake256,
+    };
 
     struct TestElement {
         input: &'static str,
@@ -91,57 +97,70 @@ pub mod test {
         })
     }
 
+    #[test]
+    fn sumhash512() {
+        let mut input = vec![0; 6000];
+        let mut v = Shake256::default();
+        v.write_all("sumhash input".as_bytes()).unwrap();
+        v.finalize_xof().read(&mut input);
+
+        let mut h = new(None).unwrap();
+        let bytes_written = h.write(&input).unwrap();
+        assert_eq!(
+            bytes_written,
+            input.len(),
+            "write return {} expected {}",
+            bytes_written,
+            input.len(),
+        );
+
+        let sum = h.sum(vec![]).unwrap();
+        let expected_sum = "43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6";
+        assert_eq!(
+            hex::encode(&sum),
+            expected_sum,
+            "got {}, want {}",
+            hex::encode(&sum),
+            expected_sum,
+        )
+    }
+
+    // TODO(jsign): remove redundancy
+    #[test]
+    fn sumhash512_salt() {
+        let mut input = vec![0; 6000];
+        let mut v = Shake256::default();
+        v.write_all("sumhash input".as_bytes()).unwrap();
+        v.finalize_xof().read(&mut input);
+
+        let mut salt = vec![0; 64];
+        v = Shake256::default();
+        v.write_all("sumhash salt".as_bytes()).unwrap();
+        v.finalize_xof().read(&mut salt);
+
+        let mut h = new(Some(salt)).unwrap();
+        let bytes_written = h.write(&input).unwrap();
+
+        assert_eq!(
+            bytes_written,
+            input.len(),
+            "write return {} expected {}",
+            bytes_written,
+            input.len()
+        );
+
+        let sum = h.sum(vec![]).unwrap();
+        let expected_sum = "c9be08eed13218c30f8a673f7694711d87dfec9c7b0cb1c8e18bf68420d4682530e45c1cd5d886b1c6ab44214161f06e091b0150f28374d6b5ca0c37efc2bca7";
+        assert_eq!(
+            hex::encode(&sum),
+            expected_sum,
+            "got {}, want {}",
+            hex::encode(&sum),
+            expected_sum
+        );
+    }
+
     /*
-    func TestSumHash512(t *testing.T) {
-        input := make([]byte, 6000)
-        v := sha3.NewShake256()
-        v.Write([]byte("sumhash input"))
-        v.Read(input)
-
-        h := New512(nil)
-        bytesWritten, err := h.Write(input)
-        if err != nil {
-            t.Errorf("write returned error : %s", err)
-        }
-
-        if bytesWritten != len(input) {
-            t.Errorf("write return %d expected %d", bytesWritten, len(input))
-        }
-
-        sum := h.Sum(nil)
-        expectedSum := "43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6"
-        if hex.EncodeToString(sum) != expectedSum {
-            t.Errorf("got %x, want %s", sum, expectedSum)
-        }
-    }
-
-    func TestSumHash512WithSalt(t *testing.T) {
-        input := make([]byte, 6000)
-        v := sha3.NewShake256()
-        v.Write([]byte("sumhash input"))
-        v.Read(input)
-
-        salt := make([]byte, 64)
-        v = sha3.NewShake256()
-        v.Write([]byte("sumhash salt"))
-        v.Read(salt)
-
-        h := New512(salt)
-        bytesWritten, err := h.Write(input)
-        if err != nil {
-            t.Errorf("write returned error : %s", err)
-        }
-
-        if bytesWritten != len(input) {
-            t.Errorf("write return %d expected %d", bytesWritten, len(input))
-        }
-        sum := h.Sum(nil)
-        expectedSum := "c9be08eed13218c30f8a673f7694711d87dfec9c7b0cb1c8e18bf68420d4682530e45c1cd5d886b1c6ab44214161f06e091b0150f28374d6b5ca0c37efc2bca7"
-        if hex.EncodeToString(sum) != expectedSum {
-            t.Errorf("got %x, want %s", sum, expectedSum)
-        }
-    }
-
     func TestSumHash512Reset(t *testing.T) {
         input := make([]byte, 6000)
         v := sha3.NewShake256()
