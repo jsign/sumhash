@@ -37,12 +37,13 @@ pub fn random_matrix<T: ReadBytesExt>(rand: &mut T, n: usize, m: usize) -> Matri
 
 // RandomMatrixFromSeed creates a random-looking matrix to be used for the sumhash function using the seed bytes.
 // n and m are the rows  and columns of the matrix respectively
+#[cfg(test)]
 pub fn random_matrix_from_seed(seed: &[u8], n: usize, m: usize) -> Matrix {
     let mut xof = Shake256::default();
-    xof.write(&64u16.to_le_bytes()).unwrap();
-    xof.write(&(n as u16).to_le_bytes()).unwrap();
-    xof.write(&(m as u16).to_le_bytes()).unwrap();
-    xof.write(seed).unwrap();
+    xof.write_all(&64u16.to_le_bytes()).unwrap();
+    xof.write_all(&(n as u16).to_le_bytes()).unwrap();
+    xof.write_all(&(m as u16).to_le_bytes()).unwrap();
+    xof.write_all(seed).unwrap();
 
     random_matrix(&mut xof.finalize_xof(), n, m)
 }
@@ -68,12 +69,12 @@ impl Matrix {
 }
 
 fn sum_bits(a: &[u64], b: u8) -> u64 {
-    //the following code is an optimization for this loop
-    //	for i := 0; i < 8; i++ {
-    //			if b>>i&1 == 1 {
-    //					x += as[i]
-    //				}
-    //		}
+    // the following code is an optimization for this loop
+    // for i := 0; i < 8; i++ {
+    //   if b>>i&1 == 1 {
+    //     x += as[i]
+    //   }
+    // }
 
     let a0 = a[0] & -i64::from(b & 1) as u64;
     let a1 = a[1] & -i64::from((b >> 1) & 1) as u64;
@@ -83,14 +84,14 @@ fn sum_bits(a: &[u64], b: u8) -> u64 {
     let a5 = a[5] & -i64::from((b >> 5) & 1) as u64;
     let a6 = a[6] & -i64::from((b >> 6) & 1) as u64;
     let a7 = a[7] & -i64::from((b >> 7) & 1) as u64;
-    return a0
-        .wrapping_add(a1)
+
+    a0.wrapping_add(a1)
         .wrapping_add(a2)
         .wrapping_add(a3)
         .wrapping_add(a4)
         .wrapping_add(a5)
         .wrapping_add(a6)
-        .wrapping_add(a7);
+        .wrapping_add(a7)
 }
 
 // Compressor represents the compression function which is performed on a message
@@ -100,20 +101,15 @@ pub trait Compressor: Clone {
     fn output_len(&self) -> usize; // len(dst)
 }
 
-// BlockSize returns the block size in bytes
-fn block_size<T: Compressor>(c: T) -> usize {
-    return c.input_len() - c.output_len();
-}
-
 impl Compressor for Matrix {
     // input_len returns the valid length of a message in bytes
     fn input_len(&self) -> usize {
-        return self.matrix[0].len() / 8;
+        self.matrix[0].len() / 8
     }
 
     // output_len returns the output len in bytes of the compression function
     fn output_len(&self) -> usize {
-        return self.matrix.len() * 8;
+        self.matrix.len() * 8
     }
 
     // Compress performs the compression algorithm on a message and output into dst
@@ -134,19 +130,19 @@ impl Compressor for Matrix {
         }
 
         // this allows go to eliminate the bound check when accessing the slice
-        //_ = msg[A.input_len()-1]
-        //_ = dst[A.output_len()-1]
+        // _ = msg[A.input_len()-1]
+        // _ = dst[A.output_len()-1]
 
         (0..self.matrix.len()).for_each(|i| {
             let mut x = 0u64;
 
             (0..msg.len()).for_each(|j| {
-                //the following code is an optimization for this loop
-                //			for b := 0; b < 8; b++ {
-                //					if (msg[j]>>b)&1 == 1 {
-                //							x += A[i][8*j+b]
-                //						}
-                //				}
+                // the following code is an optimization for this loop
+                // for b := 0; b < 8; b++ {
+                //   if (msg[j]>>b)&1 == 1 {
+                //     x += A[i][8*j+b]
+                //   }
+                // }
                 let a0 = self.matrix[i][8 * j] & -i64::from(msg[j] & 1) as u64;
                 let a1 = self.matrix[i][8 * j + 1] & -i64::from((msg[j] >> 1) & 1) as u64;
                 let a2 = self.matrix[i][8 * j + 2] & -i64::from((msg[j] >> 2) & 1) as u64;
@@ -166,7 +162,7 @@ impl Compressor for Matrix {
                     .wrapping_add(a7);
             });
 
-            dst[8 * i..8 * i + 8].clone_from_slice(&mut x.to_le_bytes());
+            dst[8 * i..8 * i + 8].clone_from_slice(&x.to_le_bytes());
         })
     }
 }
@@ -210,7 +206,7 @@ impl Compressor for LookupTable {
                 x = x.wrapping_add(self.lookup_table[i][j][msg[j] as usize]);
             });
 
-            dst[8 * i..8 * i + 8].clone_from_slice(&mut x.to_le_bytes());
+            dst[8 * i..8 * i + 8].clone_from_slice(&x.to_le_bytes());
         });
     }
 }
