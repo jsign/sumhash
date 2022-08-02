@@ -1,1 +1,1 @@
-# sumhash
+# rust-sumhash
