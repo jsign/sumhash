@@ -51,7 +51,7 @@ impl<C: compress::Compressor> Digest<C> {
         Ok(d)
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.h.iter_mut().for_each(|a| *a = 0);
         self.nx = 0;
         self.len = 0;

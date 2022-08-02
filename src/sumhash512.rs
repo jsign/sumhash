@@ -160,85 +160,93 @@ pub mod test {
         );
     }
 
-    /*
-    func TestSumHash512Reset(t *testing.T) {
-        input := make([]byte, 6000)
-        v := sha3.NewShake256()
-        v.Write([]byte("sumhash"))
-        v.Read(input)
+    #[test]
+    fn sumhash512_creset() {
+        let mut input = vec![0; 6000];
+        let mut v = Shake256::default();
+        v.write_all("sumhash".as_bytes()).unwrap();
+        v.finalize_xof().read(&mut input);
 
-        h := New512(nil)
-        h.Write(input)
-        bytesWritten, err := h.Write(input)
-        if err != nil {
-            t.Errorf("write returned error : %s", err)
-        }
+        let mut h = new(None).unwrap();
+        h.write(&input).unwrap();
+        let bytes_written = h.write(&input).unwrap();
 
-        if bytesWritten != len(input) {
-            t.Errorf("write return %d expected %d", bytesWritten, len(input))
-        }
+        assert_eq!(
+            bytes_written,
+            input.len(),
+            "write return {} expected{}",
+            bytes_written,
+            input.len()
+        );
 
-        input = make([]byte, 6000)
-        v = sha3.NewShake256()
-        v.Write([]byte("sumhash input"))
-        v.Read(input)
+        let mut input = vec![0; 6000];
+        v = Shake256::default();
+        v.write_all("sumhash input".as_bytes()).unwrap();
+        v.finalize_xof().read(&mut input);
 
-        h.Reset()
-        bytesWritten, err = h.Write(input)
-        if err != nil {
-            t.Errorf("write returned error : %s", err)
-        }
+        h.reset();
+        let bytes_written = h.write(&input).unwrap();
 
-        if bytesWritten != len(input) {
-            t.Errorf("write return %d expected %d", bytesWritten, len(input))
-        }
+        assert_eq!(
+            bytes_written,
+            input.len(),
+            "write return {} expected {}",
+            bytes_written,
+            input.len()
+        );
 
-        sum := h.Sum(nil)
-        expectedSum := "43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6"
-        if hex.EncodeToString(sum) != expectedSum {
-            t.Errorf("got %x, want %s", sum, expectedSum)
-        }
+        let sum = h.sum(vec![]).unwrap();
+        let expected_sum = "43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6";
+        assert_eq!(
+            hex::encode(&sum),
+            expected_sum,
+            "got {}, want {}",
+            hex::encode(&sum),
+            expected_sum
+        );
     }
 
-    func TestSumHash512ChecksumWithValue(t *testing.T) {
-        input := make([]byte, 6000)
-        v := sha3.NewShake256()
-        v.Write([]byte("sumhash input"))
-        v.Read(input)
+    #[test]
+    fn sumhash512_checksum_with_value() {
+        let mut input = vec![0; 6000];
+        let mut v = Shake256::default();
+        v.write_all("sumhash input".as_bytes()).unwrap();
+        v.finalize_xof().read(&mut input);
 
-        h := New512(nil)
-        bytesWritten, err := h.Write(input)
-        if err != nil {
-            t.Errorf("write returned error : %s", err)
-        }
+        let mut h = new(None).unwrap();
+        let bytes_written = h.write(&input).unwrap();
+        assert_eq!(
+            bytes_written,
+            input.len(),
+            "write return {} expected{}",
+            bytes_written,
+            input.len()
+        );
 
-        if bytesWritten != len(input) {
-            t.Errorf("write return %d expected %d", bytesWritten, len(input))
-        }
-
-        msgPrefix := make([]byte, 64)
-        rand.Read(msgPrefix)
-        sum := h.Sum(msgPrefix)
-        dec, err := hex.DecodeString("43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6")
-        expectedSum := append(msgPrefix, dec...)
-        if !bytes.Equal(sum, expectedSum) {
-            t.Errorf("got %x, want %x", sum, expectedSum)
-        }
+        let mut msg_prefix = (0..64).map(|_| rand::random::<u8>()).collect::<Vec<_>>();
+        let sum = h.sum(msg_prefix.clone()).unwrap();
+        let dec= hex::decode("43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6").unwrap();
+        msg_prefix.write_all(&dec).unwrap();
+        assert_eq!(sum, msg_prefix, "got {:?}, want {:?}", sum, msg_prefix);
     }
 
-    func TestSumHash512Sizes(t *testing.T) {
-        h := New512(nil)
-        blockSize := h.BlockSize()
-        expectedBlockSizeInBytes := 512 / 8
-        if blockSize != expectedBlockSizeInBytes {
-            t.Errorf("got block size %d, want %d", blockSize, expectedBlockSizeInBytes)
-        }
+    #[test]
+    fn sumhash512_sizes() {
+        let h = new(None).unwrap();
+        let block_size = h.block_size();
+        let expected_block_size_in_bytes = 512 / 8;
+        assert_eq!(
+            block_size, expected_block_size_in_bytes,
+            "got block size {}, want {}",
+            block_size, expected_block_size_in_bytes
+        );
 
-        size := h.Size()
-        expectedSizeInBytes := 512 / 8
-        if size != expectedSizeInBytes {
-            t.Errorf("got block size %d, want %d", blockSize, expectedBlockSizeInBytes)
-        }
+        let size = h.size();
+        let expected_size_in_bytes = 512 / 8;
+        assert_eq!(
+            size, expected_block_size_in_bytes,
+            "got size {}, want {}",
+            size, expected_size_in_bytes
+        );
     }
-    */
 }
