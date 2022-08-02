@@ -1,0 +1,13 @@
+[package]
+name = "sumhash"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+rand = "0.8.5"
+sha3 = "0.10.1"
+byteorder = "1.1.0"
+anyhow = "1.0.59"
+
+[dev-dependencies]
+hex = "0.3.1"
