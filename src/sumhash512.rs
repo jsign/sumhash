@@ -2,19 +2,19 @@ use crate::compress::{self, LookupTable};
 use crate::sumhash::Digest;
 use anyhow::Result;
 
-// DigestSize  The size in bytes of the sumhash checksum.
+/// The size in bytes of the sumhash checksum.
 pub const DIGEST_SIZE: usize = 64;
 
-// DigestBlockSize  is the block size, in bytes, of the sumhash hash function.
+/// Block size, in bytes, of the sumhash hash function.
 pub const DIGEST_BLOCK_SIZE: usize = 64;
 
-// New512 creates a new sumhash512 context that computes a sumhash checksum.
-// The output of the hash function is 64 bytes (512 bits).
-// If salt is nil, then hash.Hash computes a hash output in unsalted mode.
-// Otherwise, salt should be 64 bytes, and the hash is computed in salted mode.
-// the context returned by this function reference the salt argument. any changes
-// might affect the hash calculation
-pub fn new(salt: Option<Vec<u8>>) -> Result<Digest<LookupTable>> {
+/// Sumhash512 is an alias for the most used variant of the subset-sum hash function.
+pub type Sumhash512 = Digest<LookupTable>;
+
+/// Creates a new sumhash512 context that computes a sumhash checksum.
+/// If salt is `None`, then the hash is computed in unsalted mode.
+/// Otherwise, salt should be 64 bytes, and the hash is computed in salted mode.
+pub fn new(salt: Option<Vec<u8>>) -> Result<Sumhash512> {
     let matrix = compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024);
 
     // SumhashCompressor is a matrix derived from a seed which is used by the

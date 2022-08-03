@@ -3,7 +3,7 @@ use anyhow::Result;
 use byteorder::{ByteOrder, LittleEndian};
 use std::io::Write;
 
-// digest implementation is based on https://cs.opensource.google/go/go/+/refs/tags/go1.16.6:src/crypto/sha256/sha256.go
+/// `Digest` provides the hash state for calculating a subset-sum hash function.
 pub struct Digest<T: compress::Compressor> {
     c: T,
     size: usize,       // number of bytes in a hash output
@@ -17,12 +17,11 @@ pub struct Digest<T: compress::Compressor> {
     salt: Option<Vec<u8>>, // salt block
 }
 
+// `Digest<C>` implementation is based on: https://github.com/algorand/go-sumhash/blob/master/sumhash.go
 impl<C: compress::Compressor> Digest<C> {
-    // New returns a new hash.Hash computing a sumhash checksum.
-    // If salt is nil, then hash.Hash computes a hash output in unsalted mode.
-    // Otherwise, salt should be BlockSize(c) bytes, and the hash is computed in salted mode.
-    // the context returned by this function reference the salt argument. any changes
-    // might affect the hash calculation
+    /// Returns a `Digest` with the specified `Compressor`.
+    /// If salt is `None`, the hash is calculated in unsalted mode.
+    /// Otherwise, salt should be `BlockSize(c)` bytes, and the hash is computed in salted mode.
     pub fn new(c: C, salt: Option<Vec<u8>>) -> Result<Digest<C>> {
         let output_len = c.output_len();
         let input_len = c.input_len();
@@ -51,6 +50,7 @@ impl<C: compress::Compressor> Digest<C> {
         Ok(d)
     }
 
+    /// `reset` resets the state of the hash so it can be reused.
     pub fn reset(&mut self) {
         self.h.iter_mut().for_each(|a| *a = 0);
         self.nx = 0;
@@ -63,14 +63,17 @@ impl<C: compress::Compressor> Digest<C> {
         }
     }
 
+    /// `size` returns the size of the hash output.
     pub fn size(&self) -> usize {
         self.size
     }
 
+    /// `block_size` returns the block size for the hash function.
     pub fn block_size(&self) -> usize {
         self.block_size
     }
 
+    /// `write` adds more data to the running hash.
     pub fn write(&mut self, mut p: &[u8]) -> Result<usize> {
         let nn = p.len();
 
@@ -126,8 +129,10 @@ impl<C: compress::Compressor> Digest<C> {
         }
     }
 
-    // TODO(jsign): receiving Vec<u8> isn't useful.
+    /// `sum` appends the current hash to b and returns the resulting slice.
+    /// It does not change the underlying hash state.
     pub fn sum(&self, mut iin: Vec<u8>) -> Result<Vec<u8>> {
+        // TODO(jsign): receiving Vec<u8> might not be ideal.
         // Make a copy of d so that caller can keep writing and summing.
         let mut d0 = self.copy();
         let hash = d0.check_sum()?;
@@ -165,7 +170,7 @@ impl<C: compress::Compressor> Digest<C> {
         Ok(self.h.clone())
     }
 }
-// blocks hashes full blocks of data. len(data) must be a multiple of d.blockSize.
+// `blocks` hashes full blocks of data. len(data) must be a multiple of d.blockSize.
 fn blocks<C: compress::Compressor>(d: &mut Digest<C>, data: &[u8]) {
     let mut cin = vec![0u8; d.c.input_len()];
 
