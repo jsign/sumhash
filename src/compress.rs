@@ -2,22 +2,22 @@ use byteorder::ReadBytesExt;
 use sha3::{digest::ExtendableOutput, Shake256};
 use std::io::Write;
 
-// Matrix is the n-by-m sumhash matrix A with elements in Z_q where q=2^64
+/// `Matrix` is the n-by-m sumhash matrix A with elements in Z_q where q=2^64.
 #[derive(Clone)]
 pub struct Matrix {
     matrix: Vec<Vec<u64>>,
 }
 
-// LookupTable is the precomputed sums from a matrix for every possible byte of input.
-// Its dimensions are [n][m/8][256]uint64.
+/// `LookupTable` is the precomputed sums from a matrix for every possible byte of input.
+/// Its dimensions are `[n][m/8][256]u64`.
 #[derive(Clone)]
 pub struct LookupTable {
     lookup_table: Vec<Vec<[u64; 256]>>,
 }
 
-// RandomMatrix generates a random sumhash matrix by reading from rand.
-// n is the number of rows in the matrix and m is the number of bits in the input message.
-// must be a multiple of 8.
+/// `random_matrix` generates a random sumhash matrix by reading from rand.
+/// `n` is the number of rows in the matrix and `m` is the number of bits in the input message.
+/// Must be a multiple of 8.
 pub fn random_matrix<T: ReadBytesExt>(rand: &mut T, n: usize, m: usize) -> Matrix {
     if m % 8 != 0 {
         panic!("m={:?} is not a multiple of 8", m);
@@ -35,8 +35,8 @@ pub fn random_matrix<T: ReadBytesExt>(rand: &mut T, n: usize, m: usize) -> Matri
     Matrix { matrix }
 }
 
-// RandomMatrixFromSeed creates a random-looking matrix to be used for the sumhash function using the seed bytes.
-// n and m are the rows  and columns of the matrix respectively
+/// `random_matrix_from_seed` creates a random-looking matrix to be used for the sumhash function using the seed bytes.
+/// `n` and `m` are the rows and columns of the matrix respectively.
 pub fn random_matrix_from_seed(seed: &[u8], n: usize, m: usize) -> Matrix {
     let mut xof = Shake256::default();
     xof.write_all(&64u16.to_le_bytes()).unwrap();
@@ -48,7 +48,7 @@ pub fn random_matrix_from_seed(seed: &[u8], n: usize, m: usize) -> Matrix {
 }
 
 impl Matrix {
-    // LookupTable generates a lookuptable used to increase hash calculation performance
+    /// `lookup_table` generates a lookuptable used to increase hash calculation performance.
     pub fn lookup_table(&self) -> LookupTable {
         let n = self.matrix.len();
         let m = self.matrix[0].len();
@@ -93,25 +93,25 @@ fn sum_bits(a: &[u64], b: u8) -> u64 {
         .wrapping_add(a7)
 }
 
-// Compressor represents the compression function which is performed on a message
+/// `Compressor` represents the compression function which is performed on a message.
 pub trait Compressor: Clone {
+    /// `Compress` performs the compression algorithm on a message and output into dst.
     fn compress(&self, dst: &mut [u8], src: &[u8]);
+    /// `input_len` returns the valid length of a message in bytes.
     fn input_len(&self) -> usize; // len(input)
+    /// `output_len` returns the output len in bytes of the compression function.
     fn output_len(&self) -> usize; // len(dst)
 }
 
 impl Compressor for Matrix {
-    // input_len returns the valid length of a message in bytes
     fn input_len(&self) -> usize {
         self.matrix[0].len() / 8
     }
 
-    // output_len returns the output len in bytes of the compression function
     fn output_len(&self) -> usize {
         self.matrix.len() * 8
     }
 
-    // Compress performs the compression algorithm on a message and output into dst
     fn compress(&self, dst: &mut [u8], msg: &[u8]) {
         if msg.len() != self.input_len() {
             panic!(
@@ -167,17 +167,14 @@ impl Compressor for Matrix {
 }
 
 impl Compressor for LookupTable {
-    // input_len returns the valid length of a message in bytes
     fn input_len(&self) -> usize {
         self.lookup_table[0].len()
     }
 
-    // output_len returns the output len in bytes of the compression function
     fn output_len(&self) -> usize {
         self.lookup_table.len() * 8
     }
 
-    // Compress performs the compression algorithm on a message and output into dst
     fn compress(&self, dst: &mut [u8], msg: &[u8]) {
         if msg.len() != self.input_len() {
             panic!(
