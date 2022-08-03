@@ -7,6 +7,9 @@ authors = ["Ignacio Hagopian"]
 license = "MIT"
 readme = "README.md"
 
+[lib]
+bench = false
+
 [dependencies]
 rand = "0.8.5"
 sha3 = "0.10.1"
@@ -16,3 +19,8 @@ anyhow = "1.0.59"
 
 [dev-dependencies]
 hex = "0.3.1"
+criterion = "0.3"
+
+[[bench]]
+name = "compress_benchmark"
+harness = false
