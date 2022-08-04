@@ -33,3 +33,4 @@ pub mod compress;
 pub mod sumhash;
 /// `sumhash512` is a subset-sum hash variant with an output of is 64 bytes (512 bits).
 pub mod sumhash512;
+pub mod sumhash512core;
