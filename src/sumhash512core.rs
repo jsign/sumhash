@@ -18,7 +18,7 @@ pub const DIGEST_SIZE: usize = 64;
 /// Block size, in bytes, of the sumhash hash function.
 pub const DIGEST_BLOCK_SIZE: usize = 64;
 
-struct SumhashCore {
+pub struct SumhashCore {
     c: LookupTable,
     h: [u8; DIGEST_SIZE], // hash chain (from last compression, or IV)
     len: u64,
@@ -26,7 +26,7 @@ struct SumhashCore {
 }
 
 impl SumhashCore {
-    fn new(salt: Option<[u8; 64]>) -> Self {
+    pub fn new(salt: Option<[u8; 64]>) -> Self {
         let matrix = compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024);
         let c = matrix.lookup_table();
         let mut s = Self {
@@ -124,7 +124,7 @@ pub mod test {
     use std::io::Write;
 
     use super::*;
-    use digest::{core_api::CoreWrapper, FixedOutput};
+    use digest::{core_api::CoreWrapper, FixedOutput, Update};
     use sha3::{
         digest::{ExtendableOutput, XofReader},
         Shake256,
@@ -233,15 +233,7 @@ pub mod test {
         v.finalize_xof().read(&mut salt);
 
         let mut h = CoreWrapper::from_core(SumhashCore::new(Some(salt)));
-        let bytes_written = h.write(&input).unwrap();
-
-        assert_eq!(
-            bytes_written,
-            input.len(),
-            "write return {} expected {}",
-            bytes_written,
-            input.len()
-        );
+        h.update(&input);
 
         let sum = h.finalize_fixed();
         let expected_sum = "c9be08eed13218c30f8a673f7694711d87dfec9c7b0cb1c8e18bf68420d4682530e45c1cd5d886b1c6ab44214161f06e091b0150f28374d6b5ca0c37efc2bca7";
