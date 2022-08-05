@@ -206,7 +206,6 @@ pub mod test {
     use super::*;
     use crate::compress::*;
     use anyhow::Result;
-    //    use byteorder::ReadBytesExt;
     use hex;
     use sha3::{digest::ExtendableOutput, Shake256};
 

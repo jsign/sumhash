@@ -18,103 +18,93 @@ pub const DIGEST_SIZE: usize = 64;
 /// Block size, in bytes, of the sumhash hash function.
 pub const DIGEST_BLOCK_SIZE: usize = 64;
 
-pub struct SumhashCore {
+pub struct Sumhash512Core {
     c: LookupTable,
     h: [u8; DIGEST_SIZE], // hash chain (from last compression, or IV)
     len: u64,
     salt: Option<[u8; 64]>,
 }
 
-impl SumhashCore {
-    pub fn new(salt: Option<[u8; 64]>) -> Self {
-        let matrix = compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024);
-        let c = matrix.lookup_table();
+impl Sumhash512Core {
+    /// new_with_salt returns a Sumhash512 with salt.
+    pub fn new_with_salt(salt: [u8; 64]) -> Self {
         let mut s = Self {
-            c,
-            salt,
-            h: [0; DIGEST_SIZE],
-            len: 0,
+            salt: Some(salt),
+            ..Default::default()
         };
-        s.reset();
+        s.compress_block(&[0; DIGEST_SIZE]);
         s
     }
 
-    fn update(&mut self, data: &[u8]) {
-        let mut cin = [0u8; 128];
+    fn compress_block(&mut self, data: &[u8]) {
+        let mut cin = [0; DIGEST_BLOCK_SIZE * 2];
         self.len += data.len() as u64;
-        cin[0..DIGEST_BLOCK_SIZE]
-            .as_mut()
-            .write_all(&self.h)
-            .unwrap();
 
+        cin[0..DIGEST_BLOCK_SIZE].clone_from_slice(&self.h);
         match self.salt {
-            Some(ref salt) => {
-                SumhashCore::xor_bytes(&mut cin[DIGEST_BLOCK_SIZE..], data, salt);
-            }
-            None => {
-                cin[DIGEST_BLOCK_SIZE..].as_mut().write_all(data).unwrap();
-            }
+            Some(ref salt) => cin[DIGEST_BLOCK_SIZE..]
+                .iter_mut()
+                .enumerate()
+                .for_each(|(i, val)| *val = data[i] ^ salt[i]),
+            None => cin[DIGEST_BLOCK_SIZE..].clone_from_slice(data),
         }
 
         self.c.compress(&mut self.h, &cin);
     }
-
-    fn xor_bytes(dst: &mut [u8], a: &[u8], b: &[u8]) {
-        dst.iter_mut()
-            .enumerate()
-            .for_each(|(i, val)| *val = a[i] ^ b[i]);
-    }
 }
 
-impl Default for SumhashCore {
+impl Default for Sumhash512Core {
     fn default() -> Self {
-        Self::new(None)
+        Self {
+            c: compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024).lookup_table(),
+            salt: None,
+            h: [0; DIGEST_SIZE],
+            len: 0,
+        }
     }
 }
 
-impl Reset for SumhashCore {
+impl Reset for Sumhash512Core {
     fn reset(&mut self) {
         self.h = [0; DIGEST_SIZE];
         self.len = 0;
         if self.salt.is_some() {
             // Write an initial block of zeros, effectively
             // prepending the salt to the input.
-            self.update(&[0; DIGEST_SIZE]);
+            self.compress_block(&[0; DIGEST_SIZE]);
         }
     }
 }
 
-impl HashMarker for SumhashCore {}
+impl HashMarker for Sumhash512Core {}
 
-impl BlockSizeUser for SumhashCore {
+impl BlockSizeUser for Sumhash512Core {
     type BlockSize = U64;
 }
 
-impl BufferKindUser for SumhashCore {
+impl BufferKindUser for Sumhash512Core {
     type BufferKind = Eager;
 }
 
-impl OutputSizeUser for SumhashCore {
+impl OutputSizeUser for Sumhash512Core {
     type OutputSize = U64;
 }
 
-impl FixedOutputCore for SumhashCore {
+impl FixedOutputCore for Sumhash512Core {
     fn finalize_fixed_core(&mut self, buffer: &mut Buffer<Self>, out: &mut Output<Self>) {
         let bitlen = (self.len + buffer.get_pos() as u64) << 3; // number of input bits written
-
         let mut tmp = [0; 16];
-        LittleEndian::write_u64(&mut tmp[0..], bitlen);
-        LittleEndian::write_u64(&mut tmp[8..], 0);
-        buffer.digest_pad(0x01, &tmp, |a| self.update(a));
+        LittleEndian::write_u64(&mut tmp, bitlen);
+        buffer.digest_pad(0x01, &tmp, |a| self.compress_block(a));
 
         out.copy_from_slice(&self.h);
     }
 }
 
-impl UpdateCore for SumhashCore {
+impl UpdateCore for Sumhash512Core {
     fn update_blocks(&mut self, blocks: &[Block<Self>]) {
         for b in blocks {
-            self.update(b)
+            self.compress_block(b)
         }
     }
 }
@@ -169,60 +159,37 @@ pub mod test {
     #[test]
     fn test_vector() {
         TEST_VECTOR.iter().enumerate().for_each(|(i, element)| {
-            let mut h = CoreWrapper::<SumhashCore>::default();
+            let mut h = CoreWrapper::<Sumhash512Core>::default();
 
-            let bytes_written = h.write(element.input.as_bytes()).unwrap();
-            assert_eq!(
-                bytes_written,
-                element.input.len(),
-                "write return {} expected {}",
-                bytes_written,
-                element.input.len(),
-            );
+            h.update(element.input.as_bytes());
 
-            let output = h.finalize_fixed();
+            let sum = hex::encode(h.finalize_fixed());
             assert_eq!(
-                element.output,
-                hex::encode(&output),
+                element.output, sum,
                 "test vector element mismatched on index {} failed! got {}, want {}",
-                i,
-                hex::encode(&output),
-                element.output
+                i, sum, element.output
             );
         })
     }
 
     #[test]
     fn sumhash512() {
-        let mut input = vec![0; 6000];
+        let mut input = [0; 6000];
         let mut v = Shake256::default();
         v.write_all("sumhash input".as_bytes()).unwrap();
         v.finalize_xof().read(&mut input);
 
-        let mut h = CoreWrapper::<SumhashCore>::default();
-        let bytes_written = h.write(&input).unwrap();
-        assert_eq!(
-            bytes_written,
-            input.len(),
-            "write return {} expected {}",
-            bytes_written,
-            input.len(),
-        );
+        let mut h = CoreWrapper::<Sumhash512Core>::default();
+        h.update(&input);
+        let sum = hex::encode(h.finalize_fixed());
 
-        let sum = h.finalize_fixed();
         let expected_sum = "43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6";
-        assert_eq!(
-            hex::encode(&sum),
-            expected_sum,
-            "got {}, want {}",
-            hex::encode(&sum),
-            expected_sum,
-        )
+        assert_eq!(sum, expected_sum, "got {}, want {}", sum, expected_sum,)
     }
 
     #[test]
     fn sumhash512_salt() {
-        let mut input = vec![0; 6000];
+        let mut input = [0; 6000];
         let mut v = Shake256::default();
         v.write_all("sumhash input".as_bytes()).unwrap();
         v.finalize_xof().read(&mut input);
@@ -232,63 +199,35 @@ pub mod test {
         v.write_all("sumhash salt".as_bytes()).unwrap();
         v.finalize_xof().read(&mut salt);
 
-        let mut h = CoreWrapper::from_core(SumhashCore::new(Some(salt)));
+        let mut h = CoreWrapper::from_core(Sumhash512Core::new_with_salt(salt));
         h.update(&input);
 
-        let sum = h.finalize_fixed();
+        let sum = hex::encode(&h.finalize_fixed());
         let expected_sum = "c9be08eed13218c30f8a673f7694711d87dfec9c7b0cb1c8e18bf68420d4682530e45c1cd5d886b1c6ab44214161f06e091b0150f28374d6b5ca0c37efc2bca7";
-        assert_eq!(
-            hex::encode(&sum),
-            expected_sum,
-            "got {}, want {}",
-            hex::encode(&sum),
-            expected_sum
-        );
+        assert_eq!(sum, expected_sum, "got {}, want {}", sum, expected_sum);
     }
 
     #[test]
     fn sumhash512_reset() {
-        let mut input = vec![0; 6000];
+        let mut input = [0; 6000];
         let mut v = Shake256::default();
         v.write_all("sumhash".as_bytes()).unwrap();
         v.finalize_xof().read(&mut input);
 
-        let mut h = CoreWrapper::<SumhashCore>::default();
+        let mut h = CoreWrapper::<Sumhash512Core>::default();
         h.write_all(&input).unwrap();
-        let bytes_written = h.write(&input).unwrap();
+        h.update(&input);
 
-        assert_eq!(
-            bytes_written,
-            input.len(),
-            "write return {} expected{}",
-            bytes_written,
-            input.len()
-        );
-
-        let mut input = vec![0; 6000];
+        let mut input = [0; 6000];
         v = Shake256::default();
         v.write_all("sumhash input".as_bytes()).unwrap();
         v.finalize_xof().read(&mut input);
 
         h.reset();
-        let bytes_written = h.write(&input).unwrap();
+        h.update(&input);
 
-        assert_eq!(
-            bytes_written,
-            input.len(),
-            "write return {} expected {}",
-            bytes_written,
-            input.len()
-        );
-
-        let sum = h.finalize_fixed();
+        let sum = hex::encode(h.finalize_fixed());
         let expected_sum = "43dc59ca43da473a3976a952f1c33a2b284bf858894ef7354b8fc0bae02b966391070230dd23e0713eaf012f7ad525f198341000733aa87a904f7053ce1a43c6";
-        assert_eq!(
-            hex::encode(&sum),
-            expected_sum,
-            "got {}, want {}",
-            hex::encode(&sum),
-            expected_sum
-        );
+        assert_eq!(sum, expected_sum, "got {}, want {}", sum, expected_sum);
     }
 }

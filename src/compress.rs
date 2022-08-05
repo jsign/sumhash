@@ -228,7 +228,7 @@ pub mod test {
         let mut dst2 = vec![0u8; a.output_len()];
 
         (0..1000).for_each(|_| {
-            let msg: Vec<u8> = vec![1u8; a.input_len()]; // (0..a.input_len()).map(|_| rand::random::<u8>()).collect();
+            let msg: Vec<u8> = (0..a.input_len()).map(|_| rand::random::<u8>()).collect();
             a.compress(&mut dst1, &msg);
             at.compress(&mut dst2, &msg);
 

@@ -13,11 +13,11 @@
 //!
 //! Without salt:
 //! ```
-//! use sumhash::sumhash512core::SumhashCore;
+//! use sumhash::sumhash512core::Sumhash512Core;
 //! use digest::{core_api::CoreWrapper, FixedOutput, Update};
 //! use anyhow::Result;
 //!
-//! let mut h = CoreWrapper::<SumhashCore>::default();
+//! let mut h = CoreWrapper::<Sumhash512Core>::default();
 //! h.update("hello world".as_bytes());
 //! let output = h.finalize_fixed();
 //! println!("Result: {}", hex::encode(&output));
@@ -25,14 +25,14 @@
 //!
 //! Salted:
 //! ```
-//! use sumhash::sumhash512core::SumhashCore;
+//! use sumhash::sumhash512core::Sumhash512Core;
 //! use digest::{core_api::CoreWrapper, FixedOutput, Update};
 //! use anyhow::Result;
 //!
 //! let mut salt = [0; 64];
 //! salt[0] = 0x13;
 //! salt[1] = 0x37;
-//! let mut h = CoreWrapper::from_core(SumhashCore::new(Some(salt)));
+//! let mut h = CoreWrapper::from_core(Sumhash512Core::new_with_salt(salt));
 //! h.update("hello world".as_bytes());
 //! let output = h.finalize_fixed();
 //! println!("Result: {}", hex::encode(&output));
