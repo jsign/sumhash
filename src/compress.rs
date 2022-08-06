@@ -2,13 +2,14 @@ use byteorder::ReadBytesExt;
 use sha3::{digest::ExtendableOutput, Shake256};
 use std::io::Write;
 
-/// `Matrix` is the n-by-m sumhash matrix A with elements in Z_q where q=2^64.
+/// Matrix is the n-by-m sumhash matrix A with elements in Z_q where q=2^64.
 #[derive(Clone)]
 pub struct Matrix {
     matrix: Vec<Vec<u64>>,
 }
 
 impl Matrix {
+    /// random_matrix generates a random n x m matrix from the random source.
     pub fn random_matrix<T: ReadBytesExt>(mut rand: T, n: usize, m: usize) -> Matrix {
         if m % 8 != 0 {
             panic!("m={:?} is not a multiple of 8", m);
@@ -23,8 +24,8 @@ impl Matrix {
         });
         Matrix { matrix }
     }
-    /// `random_matrix_from_seed` creates a random-looking matrix to be used for the sumhash function using the seed bytes.
-    /// `n` and `m` are the rows and columns of the matrix respectively.
+    /// random_matrix_from_seed creates a random-looking matrix to be used for the sumhash function using the seed bytes.
+    /// n and m are the rows and columns of the matrix respectively.
     pub fn random_from_seed(seed: &[u8], n: usize, m: usize) -> Self {
         let mut xof = Shake256::default();
         xof.write_all(&64u16.to_le_bytes()).unwrap();
@@ -34,7 +35,7 @@ impl Matrix {
 
         Matrix::random_matrix(xof.finalize_xof(), n, m)
     }
-    /// `lookup_table` generates a lookuptable used to increase hash calculation performance.
+    /// lookup_table generates a lookuptable used to increase hash calculation performance.
     pub fn lookup_table(&self) -> LookupTable {
         let n = self.matrix.len();
         let m = self.matrix[0].len();
@@ -79,20 +80,20 @@ fn sum_bits(a: &[u64], b: u8) -> u64 {
         .wrapping_add(a7)
 }
 
-/// `LookupTable` is the precomputed sums from a matrix for every possible byte of input.
-/// Its dimensions are `[n][m/8][256]u64`.
+/// LookupTable is the precomputed sums from a matrix for every possible byte of input.
+/// Its dimensions are [n][m/8][256]u64.
 #[derive(Clone)]
 pub struct LookupTable {
     lookup_table: Vec<Vec<[u64; 256]>>,
 }
 
-/// `Compressor` represents the compression function which is performed on a message.
+/// Compressor represents the compression function which is performed on a message.
 pub trait Compressor: Clone {
-    /// `Compress` performs the compression algorithm on a message and output into dst.
+    /// Compress performs the compression algorithm on a message and output into dst.
     fn compress(&self, dst: &mut [u8], src: &[u8]);
-    /// `input_len` returns the valid length of a message in bytes.
+    /// input_len returns the valid length of a message in bytes.
     fn input_len(&self) -> usize; // len(input)
-    /// `output_len` returns the output len in bytes of the compression function.
+    /// output_len returns the output len in bytes of the compression function.
     fn output_len(&self) -> usize; // len(dst)
 }
 

@@ -8,7 +8,7 @@ use digest::{
 
 use byteorder::{ByteOrder, LittleEndian};
 
-use crate::compress::{self, Compressor, LookupTable, Matrix};
+use crate::compress::{Compressor, LookupTable, Matrix};
 
 /// The size in bytes of the sumhash checksum.
 pub const DIGEST_SIZE: usize = 64;
@@ -16,6 +16,7 @@ pub const DIGEST_SIZE: usize = 64;
 /// Block size, in bytes, of the sumhash hash function.
 pub const DIGEST_BLOCK_SIZE: usize = 64;
 
+/// AlgorandSumhash512 is an Algorand instance of Sumhash512Core with a lookup table as compressor.
 pub type AlgorandSumhash512Core = Sumhash512Core<LookupTable>;
 
 impl AlgorandSumhash512Core {

@@ -56,9 +56,7 @@
 //!
 //! [`go-sumhash`]: https://github.com/algorand/go-sumhash
 //! [`spec`]: https://github.com/algorand/go-sumhash/blob/master/spec/sumhash-spec.pdf
-/// `compress` represents the compression function which is performed on a message.
+/// compress represents the compression function which is performed on a message.
 pub mod compress;
-/// sumhash is a subset-sum hash.
-pub mod sumhash;
 /// sumhash512core is a core implementation for CoreWrapper<..>.
 pub mod sumhash512core;
