@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use digest::{
     block_buffer::Eager,
     core_api::{Buffer, BufferKindUser, FixedOutputCore, UpdateCore},
@@ -18,22 +16,43 @@ pub const DIGEST_SIZE: usize = 64;
 /// Block size, in bytes, of the sumhash hash function.
 pub const DIGEST_BLOCK_SIZE: usize = 64;
 
-pub struct Sumhash512Core {
-    c: LookupTable,
-    h: [u8; DIGEST_SIZE], // hash chain (from last compression, or IV)
-    len: u64,
-    salt: Option<[u8; 64]>,
-}
+pub type AlgorandSumhash512Core = Sumhash512Core<LookupTable>;
 
-impl Sumhash512Core {
+impl AlgorandSumhash512Core {
     /// new_with_salt returns a Sumhash512 with salt.
-    pub fn new_with_salt(salt: [u8; 64]) -> Self {
+    pub fn new_with_salt(salt: [u8; DIGEST_BLOCK_SIZE]) -> Self {
         let mut s = Self {
             salt: Some(salt),
             ..Default::default()
         };
         s.compress_block(&[0; DIGEST_SIZE]);
         s
+    }
+}
+
+impl Default for AlgorandSumhash512Core {
+    fn default() -> Self {
+        let c = compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024);
+        Sumhash512Core::new(c.lookup_table(), None)
+    }
+}
+
+/// Sumhash512Core returns a core implementation for sumhash cryptographic hash function.
+pub struct Sumhash512Core<C: Compressor> {
+    c: C,
+    h: [u8; DIGEST_SIZE], // hash chain (from last compression, or IV)
+    len: u64,
+    salt: Option<[u8; DIGEST_BLOCK_SIZE]>,
+}
+
+impl<C: Compressor> Sumhash512Core<C> {
+    fn new(c: C, salt: Option<[u8; DIGEST_BLOCK_SIZE]>) -> Self {
+        Self {
+            c,
+            h: [0; DIGEST_SIZE],
+            salt,
+            len: 0,
+        }
     }
 
     fn compress_block(&mut self, data: &[u8]) {
@@ -53,18 +72,7 @@ impl Sumhash512Core {
     }
 }
 
-impl Default for Sumhash512Core {
-    fn default() -> Self {
-        Self {
-            c: compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024).lookup_table(),
-            salt: None,
-            h: [0; DIGEST_SIZE],
-            len: 0,
-        }
-    }
-}
-
-impl Reset for Sumhash512Core {
+impl<C: Compressor> Reset for Sumhash512Core<C> {
     fn reset(&mut self) {
         self.h = [0; DIGEST_SIZE];
         self.len = 0;
@@ -76,21 +84,21 @@ impl Reset for Sumhash512Core {
     }
 }
 
-impl HashMarker for Sumhash512Core {}
+impl<C: Compressor> HashMarker for Sumhash512Core<C> {}
 
-impl BlockSizeUser for Sumhash512Core {
+impl<C: Compressor> BlockSizeUser for Sumhash512Core<C> {
     type BlockSize = U64;
 }
 
-impl BufferKindUser for Sumhash512Core {
+impl<C: Compressor> BufferKindUser for Sumhash512Core<C> {
     type BufferKind = Eager;
 }
 
-impl OutputSizeUser for Sumhash512Core {
+impl<C: Compressor> OutputSizeUser for Sumhash512Core<C> {
     type OutputSize = U64;
 }
 
-impl FixedOutputCore for Sumhash512Core {
+impl<C: Compressor> FixedOutputCore for Sumhash512Core<C> {
     fn finalize_fixed_core(&mut self, buffer: &mut Buffer<Self>, out: &mut Output<Self>) {
         let bitlen = (self.len + buffer.get_pos() as u64) << 3; // number of input bits written
         let mut tmp = [0; 16];
@@ -101,7 +109,7 @@ impl FixedOutputCore for Sumhash512Core {
     }
 }
 
-impl UpdateCore for Sumhash512Core {
+impl<C: Compressor> UpdateCore for Sumhash512Core<C> {
     fn update_blocks(&mut self, blocks: &[Block<Self>]) {
         for b in blocks {
             self.compress_block(b)
@@ -159,7 +167,7 @@ pub mod test {
     #[test]
     fn test_vector() {
         TEST_VECTOR.iter().enumerate().for_each(|(i, element)| {
-            let mut h = CoreWrapper::<Sumhash512Core>::default();
+            let mut h = CoreWrapper::<AlgorandSumhash512Core>::default();
 
             h.update(element.input.as_bytes());
 
@@ -179,7 +187,7 @@ pub mod test {
         v.write_all("sumhash input".as_bytes()).unwrap();
         v.finalize_xof().read(&mut input);
 
-        let mut h = CoreWrapper::<Sumhash512Core>::default();
+        let mut h = CoreWrapper::<AlgorandSumhash512Core>::default();
         h.update(&input);
         let sum = hex::encode(h.finalize_fixed());
 
@@ -214,7 +222,7 @@ pub mod test {
         v.write_all("sumhash".as_bytes()).unwrap();
         v.finalize_xof().read(&mut input);
 
-        let mut h = CoreWrapper::<Sumhash512Core>::default();
+        let mut h = CoreWrapper::<AlgorandSumhash512Core>::default();
         h.write_all(&input).unwrap();
         h.update(&input);
 
