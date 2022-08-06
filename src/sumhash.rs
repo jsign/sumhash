@@ -222,7 +222,7 @@ pub mod test {
             "fc91828801365750f0267edd5530a301d1471736c485472bbadf22507731a81fd67e0d80cce722a81c6dc690b698f5771713855c5d1927488d79713e3abd81053de2c7db1430b8fb106b3f6aa6b93e54aec351e47bcc176c0df58a0336d24979a064f3acb67a693db399c6402149157b"
             ];
 
-        let a = compress::random_matrix_from_seed(&[0x11, 0x22, 0x33, 0x44], 14, 14 * 64 * 4);
+        let a = Matrix::random_from_seed(&[0x11, 0x22, 0x33, 0x44], 14, 14 * 64 * 4);
         let a_t = a.lookup_table();
 
         let mut h1 = Digest::new(a, None)?;
@@ -254,7 +254,7 @@ pub mod test {
 
     #[test]
     fn hash_custom() -> Result<()> {
-        let a = compress::random_matrix_from_seed(&[0x11, 0x22, 0x33, 0x44], 14, 14 * 64 * 4);
+        let a = Matrix::random_from_seed(&[0x11, 0x22, 0x33, 0x44], 14, 14 * 64 * 4);
 
         let mut h1 = Digest::new(a, None)?;
 
@@ -271,7 +271,7 @@ pub mod test {
 
     fn test_hash_params(n: usize, m: usize) -> Result<()> {
         let mut rand = Shake256::default().finalize_xof();
-        let a = compress::random_matrix(&mut rand, n, m);
+        let a = Matrix::random_matrix(&mut rand, n, m);
         let a_t = a.lookup_table();
 
         let input_len = a.input_len();

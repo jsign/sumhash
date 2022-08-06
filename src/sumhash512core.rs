@@ -8,7 +8,7 @@ use digest::{
 
 use byteorder::{ByteOrder, LittleEndian};
 
-use crate::compress::{self, Compressor, LookupTable};
+use crate::compress::{self, Compressor, LookupTable, Matrix};
 
 /// The size in bytes of the sumhash checksum.
 pub const DIGEST_SIZE: usize = 64;
@@ -32,7 +32,7 @@ impl AlgorandSumhash512Core {
 
 impl Default for AlgorandSumhash512Core {
     fn default() -> Self {
-        let c = compress::random_matrix_from_seed("Algorand".as_bytes(), 8, 1024);
+        let c = Matrix::random_from_seed("Algorand".as_bytes(), 8, 1024);
         Sumhash512Core::new(c.lookup_table(), None)
     }
 }

@@ -8,46 +8,32 @@ pub struct Matrix {
     matrix: Vec<Vec<u64>>,
 }
 
-/// `LookupTable` is the precomputed sums from a matrix for every possible byte of input.
-/// Its dimensions are `[n][m/8][256]u64`.
-#[derive(Clone)]
-pub struct LookupTable {
-    lookup_table: Vec<Vec<[u64; 256]>>,
-}
-
-/// `random_matrix` generates a random sumhash matrix by reading from rand.
-/// `n` is the number of rows in the matrix and `m` is the number of bits in the input message.
-/// Must be a multiple of 8.
-pub fn random_matrix<T: ReadBytesExt>(rand: &mut T, n: usize, m: usize) -> Matrix {
-    if m % 8 != 0 {
-        panic!("m={:?} is not a multiple of 8", m);
-    }
-
-    let mut matrix: Vec<Vec<u64>> = Vec::with_capacity(n);
-    (0..n).for_each(|i| {
-        matrix.push(Vec::with_capacity(m));
-        (0..m).for_each(|_| {
-            let e = rand.read_u64::<byteorder::LittleEndian>().unwrap();
-            matrix[i].push(e);
-        });
-    });
-
-    Matrix { matrix }
-}
-
-/// `random_matrix_from_seed` creates a random-looking matrix to be used for the sumhash function using the seed bytes.
-/// `n` and `m` are the rows and columns of the matrix respectively.
-pub fn random_matrix_from_seed(seed: &[u8], n: usize, m: usize) -> Matrix {
-    let mut xof = Shake256::default();
-    xof.write_all(&64u16.to_le_bytes()).unwrap();
-    xof.write_all(&(n as u16).to_le_bytes()).unwrap();
-    xof.write_all(&(m as u16).to_le_bytes()).unwrap();
-    xof.write_all(seed).unwrap();
-
-    random_matrix(&mut xof.finalize_xof(), n, m)
-}
-
 impl Matrix {
+    pub fn random_matrix<T: ReadBytesExt>(mut rand: T, n: usize, m: usize) -> Matrix {
+        if m % 8 != 0 {
+            panic!("m={:?} is not a multiple of 8", m);
+        }
+
+        let mut matrix = Vec::with_capacity(n);
+        (0..n).for_each(|i| {
+            matrix.push(Vec::with_capacity(m));
+            (0..m).for_each(|_| {
+                matrix[i].push(rand.read_u64::<byteorder::LittleEndian>().unwrap());
+            });
+        });
+        Matrix { matrix }
+    }
+    /// `random_matrix_from_seed` creates a random-looking matrix to be used for the sumhash function using the seed bytes.
+    /// `n` and `m` are the rows and columns of the matrix respectively.
+    pub fn random_from_seed(seed: &[u8], n: usize, m: usize) -> Self {
+        let mut xof = Shake256::default();
+        xof.write_all(&64u16.to_le_bytes()).unwrap();
+        xof.write_all(&(n as u16).to_le_bytes()).unwrap();
+        xof.write_all(&(m as u16).to_le_bytes()).unwrap();
+        xof.write_all(seed).unwrap();
+
+        Matrix::random_matrix(xof.finalize_xof(), n, m)
+    }
     /// `lookup_table` generates a lookuptable used to increase hash calculation performance.
     pub fn lookup_table(&self) -> LookupTable {
         let n = self.matrix.len();
@@ -91,6 +77,13 @@ fn sum_bits(a: &[u64], b: u8) -> u64 {
         .wrapping_add(a5)
         .wrapping_add(a6)
         .wrapping_add(a7)
+}
+
+/// `LookupTable` is the precomputed sums from a matrix for every possible byte of input.
+/// Its dimensions are `[n][m/8][256]u64`.
+#[derive(Clone)]
+pub struct LookupTable {
+    lookup_table: Vec<Vec<[u64; 256]>>,
 }
 
 /// `Compressor` represents the compression function which is performed on a message.
@@ -212,17 +205,17 @@ pub mod test {
     use super::*;
     #[test]
     fn compression() {
-        let n = 14;
-        let m = n * 64 * 2;
+        const N: usize = 14;
+        const M: usize = N * 64 * 2;
 
-        let mut rand = Shake256::default().finalize_xof();
-        let a = random_matrix(&mut rand, n, m);
+        let rand = &mut Shake256::default().finalize_xof();
+        let a = Matrix::random_matrix(rand, N, M);
         let at = a.lookup_table();
 
-        assert_eq!(a.input_len(), m / 8, "unexpected input len (A)");
-        assert_eq!(at.input_len(), m / 8, "unexpected input len (At)");
-        assert_eq!(a.output_len(), n * 8, "unexpected output len (A)");
-        assert_eq!(at.output_len(), n * 8, "unexpected output len (At)");
+        assert_eq!(a.input_len(), M / 8, "unexpected input len (A)");
+        assert_eq!(at.input_len(), M / 8, "unexpected input len (At)");
+        assert_eq!(a.output_len(), N * 8, "unexpected output len (A)");
+        assert_eq!(at.output_len(), N * 8, "unexpected output len (At)");
 
         let mut dst1 = vec![0u8; a.output_len()];
         let mut dst2 = vec![0u8; a.output_len()];
