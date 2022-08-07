@@ -1,7 +1,11 @@
 [package]
 name = "sumhash"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
+description = "sumhash cryptographic function implementation"
+authors = ["Ignacio Hagopian"]
+license = "MIT"
+readme = "README.md"
 
 [dependencies]
 rand = "0.8.5"
