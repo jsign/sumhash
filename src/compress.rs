@@ -74,7 +74,7 @@ fn sum_bits(a: &[u64], b: u8) -> u64 {
 }
 
 /// LookupTable is the precomputed sums from a matrix for every possible byte of input.
-/// Its dimensions are [n][m/8][256]u64.
+/// Its dimensions are `[n][m/8][256]u64`.
 #[derive(Clone)]
 pub struct LookupTable {
     lookup_table: Vec<Vec<[u64; 256]>>,
