@@ -40,13 +40,13 @@ impl Matrix {
         let n = self.matrix.len();
         let m = self.matrix[0].len();
 
-        let mut at: Vec<Vec<[u64; 256]>> = vec![vec![[0u64; 256]; m / 8]; n];
+        let mut at = Vec::with_capacity(n);
         (0..n).for_each(|i| {
+            at.push(Vec::with_capacity(m / 8));
             (0..m).step_by(8).for_each(|j| {
-                for b in 0..256 {
-                    let zz = sum_bits(&self.matrix[i][j..j + 8], b as u8);
-                    at[i][j / 8][b] = zz;
-                }
+                at[i].push([0u64; 256]);
+                (0..256)
+                    .for_each(|b| at[i][j / 8][b] = sum_bits(&self.matrix[i][j..j + 8], b as u8));
             });
         });
 
@@ -55,13 +55,6 @@ impl Matrix {
 }
 
 fn sum_bits(a: &[u64], b: u8) -> u64 {
-    // the following code is an optimization for this loop
-    // for i := 0; i < 8; i++ {
-    //   if b>>i&1 == 1 {
-    //     x += as[i]
-    //   }
-    // }
-
     let a0 = a[0] & -i64::from(b & 1) as u64;
     let a1 = a[1] & -i64::from((b >> 1) & 1) as u64;
     let a2 = a[2] & -i64::from((b >> 2) & 1) as u64;
@@ -122,39 +115,10 @@ impl Compressor for Matrix {
             )
         }
 
-        // this allows go to eliminate the bound check when accessing the slice
-        // _ = msg[A.input_len()-1]
-        // _ = dst[A.output_len()-1]
-
         (0..self.matrix.len()).for_each(|i| {
-            let mut x = 0u64;
-
-            (0..msg.len()).for_each(|j| {
-                // the following code is an optimization for this loop
-                // for b := 0; b < 8; b++ {
-                //   if (msg[j]>>b)&1 == 1 {
-                //     x += A[i][8*j+b]
-                //   }
-                // }
-                let a0 = self.matrix[i][8 * j] & -i64::from(msg[j] & 1) as u64;
-                let a1 = self.matrix[i][8 * j + 1] & -i64::from((msg[j] >> 1) & 1) as u64;
-                let a2 = self.matrix[i][8 * j + 2] & -i64::from((msg[j] >> 2) & 1) as u64;
-                let a3 = self.matrix[i][8 * j + 3] & -i64::from((msg[j] >> 3) & 1) as u64;
-                let a4 = self.matrix[i][8 * j + 4] & -i64::from((msg[j] >> 4) & 1) as u64;
-                let a5 = self.matrix[i][8 * j + 5] & -i64::from((msg[j] >> 5) & 1) as u64;
-                let a6 = self.matrix[i][8 * j + 6] & -i64::from((msg[j] >> 6) & 1) as u64;
-                let a7 = self.matrix[i][8 * j + 7] & -i64::from((msg[j] >> 7) & 1) as u64;
-                x = x
-                    .wrapping_add(a0)
-                    .wrapping_add(a1)
-                    .wrapping_add(a2)
-                    .wrapping_add(a3)
-                    .wrapping_add(a4)
-                    .wrapping_add(a5)
-                    .wrapping_add(a6)
-                    .wrapping_add(a7);
+            let x = (0..msg.len()).fold(0u64, |x, j| {
+                x.wrapping_add(sum_bits(&self.matrix[i][8 * j..8 * (j + 1)], msg[j]))
             });
-
             dst[8 * i..8 * i + 8].clone_from_slice(&x.to_le_bytes());
         })
     }
@@ -185,17 +149,10 @@ impl Compressor for LookupTable {
             )
         }
 
-        // this allows go to eliminate the bound check when accessing the slice
-        //_ = msg[A.input_len()-1]
-        //_ = dst[A.output_len()-1]
-
         (0..self.lookup_table.len()).for_each(|i| {
-            let mut x = 0u64;
-
-            (0..self.lookup_table[i].len()).for_each(|j| {
-                x = x.wrapping_add(self.lookup_table[i][j][msg[j] as usize]);
+            let x = (0..self.lookup_table[i].len()).fold(0u64, |x, j| {
+                x.wrapping_add(self.lookup_table[i][j][msg[j] as usize])
             });
-
             dst[8 * i..8 * i + 8].clone_from_slice(&x.to_le_bytes());
         });
     }

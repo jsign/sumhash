@@ -16,13 +16,7 @@
 //!
 //! This library has a AlgorandSumhash512Core which facilitates a default configuration for Sumhash512Core that
 //! utilizes the official seed for the internal compressor. The AlgorandSumhash512Core uses a lookup table as the
-//! default underlying compressor setup instead of a matrix. This leads to better performance but a bigger memory
-//! overhead.
-//!
-//! In case you want to use the generic hashing function, meaning not using the baked in seed in Algorand, you can
-//! provide your own seed using Sumhash512Core directly.
-//!
-//! This library could be extended to provide different block size and compressor matrix dimensions.
+//! default underlying compressor setup instead of a matrix.
 //!
 //! # Examples
 //!
@@ -30,7 +24,6 @@
 //! ```
 //! use sumhash::sumhash512core::AlgorandSumhash512Core;
 //! use digest::{core_api::CoreWrapper, FixedOutput, Update};
-//! use anyhow::Result;
 //!
 //! let mut h = CoreWrapper::<AlgorandSumhash512Core>::default();
 //! h.update("hello world".as_bytes());
@@ -42,7 +35,6 @@
 //! ```
 //! use sumhash::sumhash512core::Sumhash512Core;
 //! use digest::{core_api::CoreWrapper, FixedOutput, Update};
-//! use anyhow::Result;
 //!
 //! let mut salt = [0; 64];
 //! salt[0] = 0x13;
@@ -58,5 +50,5 @@
 //! [`spec`]: https://github.com/algorand/go-sumhash/blob/master/spec/sumhash-spec.pdf
 /// compress represents the compression function which is performed on a message.
 pub mod compress;
-/// sumhash512core is a core implementation for CoreWrapper<..>.
+/// sumhash512core is a sumhash core implementation for 512 bit output.
 pub mod sumhash512core;
