@@ -10,7 +10,7 @@
 //! The tests rely on randomness generated with Shake256 using particular seeds that were honored such that we can
 //! expect each inputo to have an exact output result with the official implementation.
 //!
-//! This library has a `AlgorandSumhash512Core` type alias which facilitates a default configuration for Sumhash512Core that utilizes the official seed for the Algorand blockchain state proofs. The AlgorandSumhash512Core uses a lookup table as the default underlying compressor setup instead of a matrix.
+//! This library has a `AlgorandSumhash512Core` type alias which facilitates a default configuration for Sumhash512Core that utilizes the official seed for the Algorand blockchain state proofs.
 //!
 //! This library **isn't** audited or ready for production use, nor is it an official implementation.
 //!
