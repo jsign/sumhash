@@ -7,6 +7,7 @@ use digest::{
 };
 
 use byteorder::{ByteOrder, LittleEndian};
+use once_cell::sync::Lazy;
 
 use crate::compress::{Compressor, LookupTable, Matrix};
 
@@ -31,23 +32,25 @@ impl AlgorandSumhash512Core {
     }
 }
 
+static LOOKUP_TABLE: Lazy<LookupTable> =
+    Lazy::new(|| Matrix::random_from_seed("Algorand".as_bytes(), 8, 1024).lookup_table());
+
 impl Default for AlgorandSumhash512Core {
     fn default() -> Self {
-        let c = Matrix::random_from_seed("Algorand".as_bytes(), 8, 1024);
-        Sumhash512Core::new(c.lookup_table(), None)
+        Sumhash512Core::new(&LOOKUP_TABLE, None)
     }
 }
 
 /// Sumhash512Core returns a core implementation for sumhash cryptographic hash function.
-pub struct Sumhash512Core<C: Compressor> {
-    c: C,
+pub struct Sumhash512Core<C: Compressor + 'static> {
+    c: &'static C,
     h: [u8; DIGEST_SIZE], // hash chain (from last compression, or IV)
     len: u64,
     salt: Option<[u8; DIGEST_BLOCK_SIZE]>,
 }
 
 impl<C: Compressor> Sumhash512Core<C> {
-    fn new(c: C, salt: Option<[u8; DIGEST_BLOCK_SIZE]>) -> Self {
+    fn new(c: &'static C, salt: Option<[u8; DIGEST_BLOCK_SIZE]>) -> Self {
         Self {
             c,
             h: [0; DIGEST_SIZE],
