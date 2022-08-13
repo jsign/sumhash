@@ -54,23 +54,11 @@ impl Matrix {
     }
 }
 
+#[inline(always)]
 fn sum_bits(a: &[u64], b: u8) -> u64 {
-    let a0 = a[0] & -i64::from(b & 1) as u64;
-    let a1 = a[1] & -i64::from((b >> 1) & 1) as u64;
-    let a2 = a[2] & -i64::from((b >> 2) & 1) as u64;
-    let a3 = a[3] & -i64::from((b >> 3) & 1) as u64;
-    let a4 = a[4] & -i64::from((b >> 4) & 1) as u64;
-    let a5 = a[5] & -i64::from((b >> 5) & 1) as u64;
-    let a6 = a[6] & -i64::from((b >> 6) & 1) as u64;
-    let a7 = a[7] & -i64::from((b >> 7) & 1) as u64;
-
-    a0.wrapping_add(a1)
-        .wrapping_add(a2)
-        .wrapping_add(a3)
-        .wrapping_add(a4)
-        .wrapping_add(a5)
-        .wrapping_add(a6)
-        .wrapping_add(a7)
+    (0..a.len()).fold(0u64, |k, i| {
+        k.wrapping_add(a[i] & -i64::from((b >> i) & 1) as u64)
+    })
 }
 
 /// LookupTable is the precomputed sums from a matrix for every possible byte of input.
@@ -153,7 +141,7 @@ impl Compressor for LookupTable {
             let x = (0..self.lookup_table[i].len()).fold(0u64, |x, j| {
                 x.wrapping_add(self.lookup_table[i][j][msg[j] as usize])
             });
-            dst[8 * i..8 * i + 8].clone_from_slice(&x.to_le_bytes());
+            dst[8 * i..8 * i + 8].copy_from_slice(&x.to_le_bytes());
         });
     }
 }
