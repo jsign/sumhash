@@ -9,11 +9,15 @@ This repository contains a Rust implementation of subset-sum hash function desig
 The reference implementation is written in Go and can be found in the [`go-sumhash`] repository.
 You can also refer to the [`spec`] to see a formal description of the hash function.
 
-This implementation isn't a literal port of the Go repository since the official implementation wouldn't lead to idiomatic Rust. In this library, we implement a Sumhash512Core core that can be wrapped with CoreWrapper. If you're interested in an earlier version which was a direct port of the reference implementation, see the `legacyport` branch.
+This implementation provides a _core_ implementation to be used with the `CoreWrapper` trait. 
+If you're interested in an earlier version that was a direct port of the reference implementation, see the `legacyport` branch.
 
-This library has a `AlgorandSumhash512Core` type alias which facilitates a default configuration for Sumhash512Core that utilizes the official seed for the Algorand blockchain state proofs. The AlgorandSumhash512Core uses a lookup table as the default underlying compressor setup instead of a matrix.
+This library has an `AlgorandSumhash512Core` type alias which facilitates a default configuration for Sumhash512Core that utilizes the official seed for the Algorand blockchain state proofs. The AlgorandSumhash512Core uses a lookup table as the default underlying compressor setup instead of a matrix.
 
-This library **isn't** audited or ready for production use, nor is it an official implementation.
+This library **is**n't** audited, nor is it an official implementation.
+
+You might be interested in [this article explaining more details](https://ihagopian.com/posts/implementing-algorands-sumhash512-cryptographic-hash-function-in-rust) about the implementation and performance of the library.
+
 
 [`go-sumhash`]: https://github.com/algorand/go-sumhash
 [`spec`]: https://github.com/algorand/go-sumhash/blob/master/spec/sumhash-spec.pdf
@@ -34,7 +38,7 @@ fn main() {
 }
 ```
 
-Generic flavor providing your own seed.
+Generic flavor providing a custom seed:
 
 ```rust
 use sumhash::sumhash512core::Sumhash512Core;
@@ -82,9 +86,9 @@ test src/lib.rs - (line 26) ... ok
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
 ```
 
-### Benchs
+### Benchmarks
 
-Adding benchmarks is planned.
+You can run benchmarks with `cargo bench`.
 
 ## License
 
