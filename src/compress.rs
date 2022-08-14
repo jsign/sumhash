@@ -138,8 +138,8 @@ impl Compressor for LookupTable {
         }
 
         (0..self.lookup_table.len()).for_each(|i| {
-            let x = (0..self.lookup_table[i].len()).fold(0u64, |x, j| {
-                x.wrapping_add(self.lookup_table[i][j][msg[j] as usize])
+            let x = (0..self.lookup_table[i].len()).fold(0u64, |x, j| unsafe {
+                x.wrapping_add(self.lookup_table[i][j][*msg.get_unchecked(j as usize) as usize])
             });
             dst[8 * i..8 * i + 8].copy_from_slice(&x.to_le_bytes());
         });
@@ -168,8 +168,10 @@ pub mod test {
 
         (0..1000).for_each(|_| {
             let msg: Vec<u8> = (0..a.input_len()).map(|_| rand::random::<u8>()).collect();
-            a.compress(&mut dst1, &msg);
-            at.compress(&mut dst2, &msg);
+            unsafe {
+                a.compress(&mut dst1, &msg);
+                at.compress(&mut dst2, &msg);
+            }
 
             assert_eq!(dst1, dst2, "matrix and lookup table outputs are different");
         });
